@@ -177,6 +177,45 @@
     <cfset expected = "(1.10)(2.20)(3.30)(4.40)(5.50)" />
   </cffunction>
 
+  <cffunction name="arrayIndexSimple">
+    <cfset context = {
+      fruitsAndNumbers = ["apple","banana","orange",1234,1337.575]
+    } />
+    <cfset template = "{{##fruitsAndNumbers}}({{@index}}:{{.}}){{/fruitsAndNumbers}}">
+    <cfset expected = "(1:apple)(2:banana)(3:orange)(4:1234)(5:1337.575)" />
+  </cffunction>
+
+  <cffunction name="arrayIndexNested">
+    <cfset context = {
+      movies = [
+	  	{name="From Dusk Till Dawn", actors=["Clooney", "Keitel", "Tarantino"]},
+	  	{name="Pulp Fiction", actors=["Travolta", "Jackson", "Thurman", "Willis"]},
+	  	{name="Django Unchained", actors=["Foxx", "Waltz"]}
+      ]
+    } />
+    <cfset template = "{{##movies}}(Movie {{@index}}:{{##actors}} {{@index}}. {{.}}{{/actors}}){{/movies}}">
+    <cfset expected = "(Movie 1: 1. Clooney 2. Keitel 3. Tarantino)(Movie 2: 1. Travolta 2. Jackson 3. Thurman 4. Willis)(Movie 3: 1. Foxx 2. Waltz)" />
+  </cffunction>
+
+  <cffunction name="indexShouldBeEmptyIfNotInsideLoop">
+    <cfset context = {
+      foobar = ["a","b"]
+    } />
+    <cfset template = "{{@index}}{{##foobar}}.{{/foobar}}{{@index}}">
+    <cfset expected = ".." />
+  </cffunction>
+
+  <cffunction name="queryIndex">
+    <cfset contacts = queryNew("name")/>
+    <cfset queryAddRow(contacts)>
+    <cfset querySetCell(contacts, "name", "Peter") />
+    <cfset queryAddRow(contacts)>
+    <cfset querySetCell(contacts, "name", "Laura") />
+    <cfset context = {contacts = contacts} />
+    <cfset template = "{{##contacts}}({{@index}}. {{name}}){{/contacts}}">
+    <cfset expected = "(1. Peter)(2. Laura)" />
+  </cffunction>
+
   <cffunction name="queryAsSection">
     <cfset contacts = queryNew("name,phone")/>
     <cfset queryAddRow(contacts)>
