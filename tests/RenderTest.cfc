@@ -1,8 +1,16 @@
 <cfcomponent extends="mxunit.framework.TestCase">
 
+	<cffunction name="_customHelper" access="private">
+		<cfargument name="template">
+		<cfargument name="params">
+
+		<cfreturn template & " " & params[1] & " " & params[2]>
+	</cffunction>
+
 	<cffunction name="setup">
 		<cfset partials = {} />
 		<cfset stache = createObject("component", "mustache.Mustache").init() />
+		<cfset stache.registerHelper("customHelper", _customHelper)>
 	</cffunction>
 
 	<cffunction name="tearDown">
@@ -306,6 +314,44 @@
 		<cfset context = {fullname=lambdaTest} />
     <cfset template = "Mustache was created by {{fullname}}." />
     <cfset expected = "Mustache was created by Chris Wanstrath." />
+  </cffunction>
+  
+  <cffunction name="ifHelper">
+    <cfset q1 = queryNew("name")/>
+    <cfset queryAddRow(q1)>
+    <cfset querySetCell(q1, "name", "Jenny") />
+    <cfset q2 = queryNew("name")/>
+    <cfset context = {
+    	true1=true,
+    	true2=1,
+    	true3=55.34,
+    	true4="Test",
+    	true5={"foobar"=1},
+    	true6=["a"],
+    	true7=q1,
+    	false1=false,
+    	false2=0,
+    	false3=0.0,
+    	false4="",
+    	false5={},
+    	false6=[],
+    	false7=q2
+    	}/>
+    <cfset template = "{{##if true1}}(t1){{/if}}{{##if true2}}(t2){{/if}}{{##if true3}}(t3){{/if}}{{##if true4}}(t4){{/if}}{{##if true5}}(t5){{/if}}{{##if true6}}(t6){{/if}}{{##if true7}}(t7){{/if}}" />
+    <cfset template &= "{{##if false1}}(f1){{/if}}{{##if false2}}(f2){{/if}}{{##if false3}}(f3){{/if}}{{##if false4}}(f4){{/if}}{{##if false5}}(f5){{/if}}{{##if false6}}(f6){{/if}}{{##if false7}}(f7){{/if}}" />
+    <cfset expected = "(t1)(t2)(t3)(t4)(t5)(t6)(t7)" />
+  </cffunction>
+
+  <cffunction name="repeatHelper">
+    <cfset context = {nTimes=3}/>
+    <cfset template = "{{##repeat nTimes}}A{{/repeat}}{{##repeat ""5""}}B{{/repeat}}" />
+    <cfset expected = "AAABBBBB" />
+  </cffunction>
+
+  <cffunction name="customHelper">
+    <cfset context = {firstName="Foo"}/>
+    <cfset template = '{{##customHelper firstName "Bar"}}My name is{{/customHelper}}' />
+    <cfset expected = "My name is Foo Bar" />
   </cffunction>
 
   <cffunction name="filter">
