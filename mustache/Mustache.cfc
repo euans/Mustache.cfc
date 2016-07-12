@@ -28,7 +28,7 @@
 	<!--- Partial regex --->
 	<cfset variables.Mustache.PartialRegEx = variables.Mustache.Pattern.compile("\{\{\>\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile('\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*([\w\s"]+)?}}(.*?)\{\{\s*\/\s*\2\s*\}\}', 32)/>
+	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile('\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*([\w\s"@]+)?}}(.*?)\{\{\s*\/\s*\2\s*\}\}', 32)/>
 	<!--- captures nested structure references --->
 	<cfset variables.Mustache.CommentRegEx = variables.Mustache.Pattern.compile("((^\r?\n?)|\s+)?\{\{!.*?\}\}(\r?\n?(\r?\n?)?)?", 40)/>
 	<!--- captures nested structure references --->
@@ -102,7 +102,7 @@
 		<cfset arguments.template = variables.Mustache.CommentRegEx.matcher(javaCast("string", arguments.template)).replaceAll("$3")/>
 
 		<cfset structAppend(arguments.partials, variables.Mustache.partials, false)/>
-		<cfset arguments.template = renderSections(arguments.template, arguments.context, arguments.partials, arguments.options)/>
+		<cfset arguments.template = renderSections(arguments.template, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 		<cfreturn renderTags(arguments.template, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 	</cffunction>
 
@@ -111,6 +111,7 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options" />
+		<cfargument name="index" />
 
 		<cfset var local = {}/>
 		<cfset var lastSectionPosition = -1/>
@@ -128,7 +129,7 @@
 			<cfset local.tagParams = local.matches[4]/>
 			<cfset local.inner = local.matches[5]/>
 
-			<cfset local.rendered = renderSection(local.tagName, local.tagParams, local.type, local.inner, arguments.context, arguments.partials, arguments.options)/>
+			<cfset local.rendered = renderSection(local.tagName, local.tagParams, local.type, local.inner, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 
 			<!--- look to see where the current tag exists in the output; which we use to see if starting whitespace should be trimmed ---->
 			<cfset local.sectionPosition = find(local.tag, arguments.template)/>
@@ -172,15 +173,16 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index" default=""/>
 
 		<cfset var local = {}/>
 
 		<cfset local.ctx = get(arguments.tagName, arguments.context, arguments.partials, arguments.options)/>
 
 		<cfif len(trim(arguments.tagParams))>
-			<cfreturn renderHelper(arguments.tagName, arguments.tagParams, arguments.inner, arguments.context, arguments.partials, arguments.options)/>
+			<cfreturn renderHelper(arguments.tagName, arguments.tagParams, arguments.inner, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 		<cfelseif arguments.type neq "^" and isStruct(local.ctx) and !StructIsEmpty(local.ctx)>
-			<cfreturn renderFragment(arguments.inner, local.ctx, arguments.partials, arguments.options)/>
+			<cfreturn renderFragment(arguments.inner, local.ctx, arguments.partials, arguments.options, arguments.index)/>
 		<cfelseif arguments.type neq "^" and isQuery(local.ctx) AND local.ctx.recordCount>
 			<cfreturn renderQuerySection(arguments.inner, local.ctx, arguments.partials, arguments.options)/>
 		<cfelseif arguments.type neq "^" and isArray(local.ctx) and !arrayIsEmpty(local.ctx)>
@@ -203,6 +205,7 @@
 		<cfargument name="context" />
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index"/>
 
 		<cfset var local = {}/>
 
@@ -214,14 +217,14 @@
 			    <cfif refindNoCase('^\s*".*"\s*$', local.paramName)>
 			        <cfset local.paramValue = rereplaceNoCase(local.paramName, '^\s*"(.*)"\s*$', '\1')>
                 <cfelse>
-                    <cfset local.paramValue = get(local.paramName, arguments.context, arguments.partials, arguments.options)>
+                    <cfset local.paramValue = get(local.paramName, arguments.context, arguments.partials, arguments.options, arguments.index)>
 			    </cfif>
 				<cfset arrayAppend(local.params, local.paramValue)>
 			</cfloop>
 
 			<cfset local.result = local.theFunction(arguments.template, local.params)>
 
-			<cfreturn renderFragment(local.result, arguments.context, arguments.partials, arguments.options)>
+			<cfreturn renderFragment(local.result, arguments.context, arguments.partials, arguments.options, arguments.index)>
 		<cfelse>
 			<cfreturn "">
 		</cfif>
@@ -512,6 +515,7 @@
 	<cffunction name="registerHelpers" access="private" output="false">
         <cfset registerHelper("if", helperIf)>
         <cfset registerHelper("repeat", helperRepeat)>
+        <cfset registerHelper("modulo", helperModulo)>
 	</cffunction>
 
 	<cffunction name="helperIf" access="private" output="false">
@@ -535,6 +539,12 @@
 		</cfloop>
 
 		<cfreturn sb.toString()>
+	</cffunction>
+
+	<cffunction name="helperModulo" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="params">
+		<cfreturn (params[2] mod params[1]) ? "" : template>
 	</cffunction>
 
 </cfcomponent>

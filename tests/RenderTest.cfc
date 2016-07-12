@@ -348,6 +348,12 @@
     <cfset expected = "AAABBBBB" />
   </cffunction>
 
+  <cffunction name="moduloHelper">
+    <cfset context = {names=["Peter","Hans","Fritz","Susanne","Maria"]}/>
+    <cfset template = '{{##names}}({{.}}){{##modulo "2" @index}}<br>{{/modulo}}{{/names}}' />
+    <cfset expected = "(Peter)(Hans)<br>(Fritz)(Susanne)<br>(Maria)" />
+  </cffunction>
+
   <cffunction name="customHelper">
     <cfset context = {firstName="Foo"}/>
     <cfset template = '{{##customHelper firstName "Bar"}}My name is{{/customHelper}}' />
