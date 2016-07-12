@@ -211,7 +211,7 @@
 
 		<cfif structKeyExists(variables.Mustache.helpers, arguments.tagName) and isCustomFunction(variables.Mustache.helpers[arguments.tagName])>
 			<cfset local.theFunction = variables.Mustache.helpers[arguments.tagName]>
-			<cfset local.params = []>
+			<cfset local.args = []>
 
 			<cfloop list="#arguments.tagParams#" delimiters=" " index="local.paramName">
 			    <cfif refindNoCase('^\s*".*"\s*$', local.paramName)>
@@ -219,10 +219,10 @@
                 <cfelse>
                     <cfset local.paramValue = get(local.paramName, arguments.context, arguments.partials, arguments.options, arguments.index)>
 			    </cfif>
-				<cfset arrayAppend(local.params, local.paramValue)>
+				<cfset arrayAppend(local.args, local.paramValue)>
 			</cfloop>
 
-			<cfset local.result = local.theFunction(arguments.template, local.params)>
+			<cfset local.result = local.theFunction(arguments.template, local.args)>
 
 			<cfreturn renderFragment(local.result, arguments.context, arguments.partials, arguments.options, arguments.index)>
 		<cfelse>
@@ -515,7 +515,8 @@
 	<cffunction name="registerHelpers" access="private" output="false">
         <cfset registerHelper("if", helperIf)>
         <cfset registerHelper("repeat", helperRepeat)>
-        <cfset registerHelper("modulo", helperModulo)>
+        <cfset registerHelper("withRemainder", helperWithRemainder)>
+        <cfset registerHelper("noRemainder", helperNoRemainder)>
 	</cffunction>
 
 	<cffunction name="helperIf" access="private" output="false">
@@ -541,10 +542,16 @@
 		<cfreturn sb.toString()>
 	</cffunction>
 
-	<cffunction name="helperModulo" access="private" output="false">
+	<cffunction name="helperWithRemainder" access="private" output="false">
         <cfargument name="template">
-		<cfargument name="params">
-		<cfreturn (params[2] mod params[1]) ? "" : template>
+		<cfargument name="args">
+		<cfreturn (args[2] mod args[1]) ? template : "">
+	</cffunction>
+
+	<cffunction name="helperNoRemainder" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="args">
+		<cfreturn (args[2] mod args[1]) ? "" : template>
 	</cffunction>
 
 </cfcomponent>

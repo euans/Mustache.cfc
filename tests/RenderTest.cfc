@@ -2,9 +2,9 @@
 
 	<cffunction name="_customHelper" access="private">
 		<cfargument name="template">
-		<cfargument name="params">
+		<cfargument name="args">
 
-		<cfreturn template & " " & params[1] & " " & params[2]>
+		<cfreturn template & " " & args[1] & " " & args[2]>
 	</cffunction>
 
 	<cffunction name="setup">
@@ -348,9 +348,15 @@
     <cfset expected = "AAABBBBB" />
   </cffunction>
 
-  <cffunction name="moduloHelper">
+  <cffunction name="withRemainderHelper">
     <cfset context = {names=["Peter","Hans","Fritz","Susanne","Maria"]}/>
-    <cfset template = '{{##names}}({{.}}){{##modulo "2" @index}}<br>{{/modulo}}{{/names}}' />
+    <cfset template = '{{##names}}({{.}}){{##withRemainder "2" @index}}<br>{{/withRemainder}}{{/names}}' />
+    <cfset expected = "(Peter)<br>(Hans)(Fritz)<br>(Susanne)(Maria)<br>" />
+  </cffunction>
+
+  <cffunction name="noRemainderHelper">
+    <cfset context = {names=["Peter","Hans","Fritz","Susanne","Maria"]}/>
+    <cfset template = '{{##names}}({{.}}){{##noRemainder "2" @index}}<br>{{/noRemainder}}{{/names}}' />
     <cfset expected = "(Peter)(Hans)<br>(Fritz)(Susanne)<br>(Maria)" />
   </cffunction>
 
