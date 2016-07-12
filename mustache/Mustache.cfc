@@ -28,7 +28,7 @@
 	<!--- Partial regex --->
 	<cfset variables.Mustache.PartialRegEx = variables.Mustache.Pattern.compile("\{\{\>\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile('\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*([\w\s"@]+)?}}(.*?)\{\{\s*\/\s*\2\s*\}\}', 32)/>
+	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile('\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*([\w\s"@.]+)?}}(.*?)\{\{\s*\/\s*\2\s*\}\}', 32)/>
 	<!--- captures nested structure references --->
 	<cfset variables.Mustache.CommentRegEx = variables.Mustache.Pattern.compile("((^\r?\n?)|\s+)?\{\{!.*?\}\}(\r?\n?(\r?\n?)?)?", 40)/>
 	<!--- captures nested structure references --->
