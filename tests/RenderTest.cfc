@@ -342,6 +342,32 @@
     <cfset expected = "(t1)(t2)(t3)(t4)(t5)(t6)(t7)" />
   </cffunction>
 
+  <cffunction name="unlessHelper">
+    <cfset q1 = queryNew("name")/>
+    <cfset queryAddRow(q1)>
+    <cfset querySetCell(q1, "name", "Jenny") />
+    <cfset q2 = queryNew("name")/>
+    <cfset context = {
+    	true1=true,
+    	true2=1,
+    	true3=55.34,
+    	true4="Test",
+    	true5={"foobar"=1},
+    	true6=["a"],
+    	true7=q1,
+    	false1=false,
+    	false2=0,
+    	false3=0.0,
+    	false4="",
+    	false5={},
+    	false6=[],
+    	false7=q2
+    	}/>
+    <cfset template = "{{##unless true1}}(t1){{/unless}}{{##unless true2}}(t2){{/unless}}{{##unless true3}}(t3){{/unless}}{{##unless true4}}(t4){{/unless}}{{##unless true5}}(t5){{/unless}}{{##unless true6}}(t6){{/unless}}{{##unless true7}}(t7){{/unless}}" />
+    <cfset template &= "{{##unless false1}}(f1){{/unless}}{{##unless false2}}(f2){{/unless}}{{##unless false3}}(f3){{/unless}}{{##unless false4}}(f4){{/unless}}{{##unless false5}}(f5){{/unless}}{{##unless false6}}(f6){{/unless}}{{##unless false7}}(f7){{/unless}}" />
+    <cfset expected = "(f1)(f2)(f3)(f4)(f5)(f6)(f7)" />
+  </cffunction>
+
   <cffunction name="repeatHelper">
     <cfset context = {nTimes=3}/>
     <cfset template = "{{##repeat nTimes}}A{{/repeat}}{{##repeat ""5""}}B{{/repeat}}" />

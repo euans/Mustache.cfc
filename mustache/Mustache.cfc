@@ -514,6 +514,7 @@
 
 	<cffunction name="registerHelpers" access="private" output="false">
         <cfset registerHelper("if", helperIf)>
+        <cfset registerHelper("unless", helperUnless)>
         <cfset registerHelper("repeat", helperRepeat)>
         <cfset registerHelper("withRemainder", helperWithRemainder)>
         <cfset registerHelper("noRemainder", helperNoRemainder)>
@@ -523,6 +524,12 @@
         <cfargument name="template">
 		<cfargument name="params">
 		<cfreturn convertToBoolean(params[1]) ? template : "">
+	</cffunction>
+
+	<cffunction name="helperUnless" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="params">
+		<cfreturn convertToBoolean(params[1]) ? "" : template>
 	</cffunction>
 
 	<cffunction name="helperRepeat" access="private" output="false">
