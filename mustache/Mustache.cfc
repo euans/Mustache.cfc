@@ -24,25 +24,27 @@
 	<cfset variables.Mustache.Pattern=createObject("java","java.util.regex.Pattern") />
 
 	<!--- captures the ".*" match for looking for formatters (see #2) and also allows nested structure references (see #3), removes looking for comments --->
-	<cfset variables.Mustache.TagRegEx = variables.Mustache.Pattern.compile("\{\{(\{|&|\>)?\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
+	<cfset variables.Mustache.TagRegEx = variables.Mustache.Pattern.compile("\{\{(\{|&|\>)?\s*((?:[\w@]+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
 	<!--- Partial regex --->
 	<cfset variables.Mustache.PartialRegEx = variables.Mustache.Pattern.compile("\{\{\>\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile("\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*}}(.*?)\{\{\s*/\s*\2\s*\}\}", 32)/>
+	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile('\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*([\w\s"@.]+)?}}(.*?)\{\{\s*\/\s*\2\s*\}\}', 32)/>
 	<!--- captures nested structure references --->
 	<cfset variables.Mustache.CommentRegEx = variables.Mustache.Pattern.compile("((^\r?\n?)|\s+)?\{\{!.*?\}\}(\r?\n?(\r?\n?)?)?", 40)/>
 	<!--- captures nested structure references --->
 	<cfset variables.Mustache.HeadTailBlankLinesRegEx = variables.Mustache.Pattern.compile(javaCast("string", "(^(\r?\n))|((?<!(\r?\n))(\r?\n)$)"), 32)/>
 	<!--- for tracking partials --->
 	<cfset variables.Mustache.partials = {}/>
+	<!--- helpers --->
+	<cfset variables.Mustache.helpers = {}/>
 	<!--- Raising Errors --->
 	<cfset variables.Mustache.RaiseErrors = "true">
-
 	<cffunction name="init" access="public" output="false"
 		hint="initalizes and returns the object">
 		<cfargument name="partials" hint="the partial objects" default="#StructNew()#">
 		<cfargument name="raiseErrors" hint="raise errors if template is not found" default="true">
 
+        <cfset registerHelpers()>
 		<cfset setPartials(arguments.partials)/>
 		<cfset setRaiseErrors(arguments.RaiseErrors)>
 
@@ -65,6 +67,13 @@
 		<cfset results = variables.Mustache.HeadTailBlankLinesRegEx.matcher(javaCast("string", results)).replaceAll("")/>
 
 		<cfreturn results/>
+	</cffunction>
+
+	<cffunction name="registerHelper" access="public" output="false" returntype="void">
+		<cfargument type="string" name="helperName">
+		<cfargument type="function" name="userFunction">
+
+		<cfset variables.Mustache.helpers[helperName] = userFunction>
 	</cffunction>
 
 	<cffunction name="replacePartialsInTemplate" access="private" output="false">
@@ -90,13 +99,14 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index" default=""/>
 
 		<!--- clean the comments from the template --->
 		<cfset arguments.template = variables.Mustache.CommentRegEx.matcher(javaCast("string", arguments.template)).replaceAll("$3")/>
 
 		<cfset structAppend(arguments.partials, variables.Mustache.partials, false)/>
-		<cfset arguments.template = renderSections(arguments.template, arguments.context, arguments.partials, arguments.options)/>
-		<cfreturn renderTags(arguments.template, arguments.context, arguments.partials, arguments.options)/>
+		<cfset arguments.template = renderSections(arguments.template, arguments.context, arguments.partials, arguments.options, arguments.index)/>
+		<cfreturn renderTags(arguments.template, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 	</cffunction>
 
 	<cffunction name="renderSections" access="private" output="false">
@@ -104,6 +114,7 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options" />
+		<cfargument name="index" />
 
 		<cfset var local = {}/>
 		<cfset var lastSectionPosition = -1/>
@@ -118,8 +129,10 @@
 			<cfset local.tag = local.matches[1]/>
 			<cfset local.type = local.matches[2]/>
 			<cfset local.tagName = local.matches[3]/>
-			<cfset local.inner = local.matches[4]/>
-			<cfset local.rendered = renderSection(local.tagName, local.type, local.inner, arguments.context, arguments.partials, arguments.options)/>
+			<cfset local.tagParams = local.matches[4]/>
+			<cfset local.inner = local.matches[5]/>
+
+			<cfset local.rendered = renderSection(local.tagName, local.tagParams, local.type, local.inner, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 
 			<!--- look to see where the current tag exists in the output; which we use to see if starting whitespace should be trimmed ---->
 			<cfset local.sectionPosition = find(local.tag, arguments.template)/>
@@ -157,18 +170,22 @@
 
 	<cffunction name="renderSection" access="private" output="false">
 		<cfargument name="tagName"/>
+		<cfargument name="tagParams"/>
 		<cfargument name="type"/>
 		<cfargument name="inner"/>
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index" default=""/>
 
 		<cfset var local = {}/>
 
 		<cfset local.ctx = get(arguments.tagName, arguments.context, arguments.partials, arguments.options)/>
 
-		<cfif arguments.type neq "^" and isStruct(local.ctx) and !StructIsEmpty(local.ctx)>
-			<cfreturn renderFragment(arguments.inner, local.ctx, arguments.partials, arguments.options)/>
+		<cfif len(trim(arguments.tagParams))>
+			<cfreturn renderHelper(arguments.tagName, arguments.tagParams, arguments.inner, arguments.context, arguments.partials, arguments.options, arguments.index)/>
+		<cfelseif arguments.type neq "^" and isStruct(local.ctx) and !StructIsEmpty(local.ctx)>
+			<cfreturn renderFragment(arguments.inner, local.ctx, arguments.partials, arguments.options, arguments.index)/>
 		<cfelseif arguments.type neq "^" and isQuery(local.ctx) AND local.ctx.recordCount>
 			<cfreturn renderQuerySection(arguments.inner, local.ctx, arguments.partials, arguments.options)/>
 		<cfelseif arguments.type neq "^" and isArray(local.ctx) and !arrayIsEmpty(local.ctx)>
@@ -182,6 +199,38 @@
 		</cfif>
 
 		<cfreturn ""/>
+	</cffunction>
+
+	<cffunction name="renderHelper" access="private" output="false">
+		<cfargument name="tagName"/>
+		<cfargument name="tagParams"/>
+		<cfargument name="template" />
+		<cfargument name="context" />
+		<cfargument name="partials"/>
+		<cfargument name="options"/>
+		<cfargument name="index"/>
+
+		<cfset var local = {}/>
+
+		<cfif structKeyExists(variables.Mustache.helpers, arguments.tagName) and isCustomFunction(variables.Mustache.helpers[arguments.tagName])>
+			<cfset local.theFunction = variables.Mustache.helpers[arguments.tagName]>
+			<cfset local.args = []>
+
+			<cfloop list="#arguments.tagParams#" delimiters=" " index="local.paramName">
+			    <cfif refindNoCase('^\s*".*"\s*$', local.paramName)>
+			        <cfset local.paramValue = rereplaceNoCase(local.paramName, '^\s*"(.*)"\s*$', '\1')>
+                <cfelse>
+                    <cfset local.paramValue = get(local.paramName, arguments.context, arguments.partials, arguments.options, arguments.index)>
+			    </cfif>
+				<cfset arrayAppend(local.args, local.paramValue)>
+			</cfloop>
+
+			<cfset local.result = local.theFunction(arguments.template, local.args)>
+
+			<cfreturn renderFragment(local.result, arguments.context, arguments.partials, arguments.options, arguments.index)>
+		<cfelse>
+			<cfreturn "">
+		</cfif>
 	</cffunction>
 
 	<cffunction name="renderLambda" access="private" output="false"
@@ -243,7 +292,7 @@
 		<cfset arguments.template = rtrim(arguments.template)/>
 
 		<cfloop query="arguments.context">
-			<cfset arrayAppend(results, renderFragment(arguments.template, arguments.context, arguments.partials, arguments.options))/>
+			<cfset arrayAppend(results, renderFragment(arguments.template, arguments.context, arguments.partials, arguments.options, arguments.context.currentrow))/>
 		</cfloop>
 		<cfreturn arrayToList(results, "")/>
 	</cffunction>
@@ -254,12 +303,12 @@
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
 
-		<cfset var local = {}/>
+		<cfset var local = { index=1 }/>
 
 		<!--- trim the trailing whitespace--so we don't print extra lines --->
 		<cfset arguments.template = rtrim(arguments.template)/>
 
-		<cfsavecontent variable="local.results"><cfloop array="#arguments.context#" index="local.item"><cfoutput>#renderFragment(arguments.template, local.item, arguments.partials, arguments.options)#</cfoutput></cfloop></cfsavecontent>
+		<cfsavecontent variable="local.results"><cfloop array="#arguments.context#" index="local.item"><cfoutput>#renderFragment(arguments.template, local.item, arguments.partials, arguments.options, local.index)#</cfoutput><cfset local.index++></cfloop></cfsavecontent>
 
 		<cfreturn local.results />
 	</cffunction>
@@ -269,6 +318,7 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index"/>
 
 		<cfset var local = {}/>
 
@@ -285,7 +335,7 @@
 			<cfset local.tagName = local.matches[3]/>
 			<!--- gets the ".*" capture --->
 			<cfset local.extra = local.matches[4]/>
-			<cfset arguments.template = replace(arguments.template, local.tag, renderTag(local.type, local.tagName, arguments.context, arguments.partials, arguments.options, local.extra))/>
+			<cfset arguments.template = replace(arguments.template, local.tag, renderTag(local.type, local.tagName, arguments.context, arguments.partials, arguments.options, local.extra, arguments.index))/>
 
 		</cfloop>
 
@@ -299,6 +349,7 @@
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
 		<cfargument name="extra" hint="The text appearing after the tag name"/>
+		<cfargument name="index" hint="The current index if inside loop"/>
 
 		<cfset var local = {}/>
 		<cfset var results = ""/>
@@ -307,7 +358,7 @@
 		<cfif arguments.type eq "!">
 			<cfreturn ""/>
 		<cfelseif (arguments.type eq "{") or (arguments.type eq "&")>
-			<cfset arguments.value = get(arguments.tagName, arguments.context, arguments.partials, arguments.options)/>
+			<cfset arguments.value = get(arguments.tagName, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 			<cfset arguments.valueType = "text"/>
 			<cfset results = textEncode(arguments.value, arguments.options, arguments)/>
 		<cfelseif arguments.type eq ">">
@@ -315,7 +366,7 @@
 			<cfset arguments.valueType = "partial"/>
 			<cfset results = arguments.value/>
 		<cfelse>
-			<cfset arguments.value = get(arguments.tagName, arguments.context, arguments.partials, arguments.options)/>
+			<cfset arguments.value = get(arguments.tagName, arguments.context, arguments.partials, arguments.options, arguments.index)/>
 			<cfset arguments.valueType = "html"/>
 			<cfset results = htmlEncode(arguments.value, arguments.options, arguments)/>
 		</cfif>
@@ -388,18 +439,21 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="index" default=""/>
 
 		<cfset var local = {}/>
 
 		<!--- if we are the implicit iterator --->
 		<cfif arguments.key eq ".">
 			<cfreturn toString(context) />
+		<cfelseif arguments.key eq "@index">
+			<cfreturn index />
 		<!--- if we're a nested key, do a nested lookup --->
 		<cfelseif find(".", arguments.key)>
 			<cfset local.key = listRest(arguments.key, ".")/>
 			<cfset local.root = listFirst(arguments.key, ".")/>
 			<cfif structKeyExists(arguments.context, local.root)>
-				<cfreturn get(local.key, context[local.root], arguments.partials, arguments.options)/>
+				<cfreturn get(local.key, context[local.root], arguments.partials, arguments.options, arguments.index)/>
 			<cfelse>
 				<cfreturn ""/>
 			</cfif>
@@ -475,6 +529,55 @@
 	<cffunction name="setRaiseErrors" access="public" output="false">
 		<cfargument name="value" type="boolean" required="true">
 		<cfset variables.Mustache.RaiseErrors = arguments.value>
+	</cffunction>
+
+	<cffunction name="registerHelpers" access="private" output="false">
+        <cfset registerHelper("if", helperIf)>
+        <cfset registerHelper("unless", helperUnless)>
+        <cfset registerHelper("repeat", helperRepeat)>
+        <cfset registerHelper("withRemainder", helperWithRemainder)>
+        <cfset registerHelper("noRemainder", helperNoRemainder)>
+	</cffunction>
+
+	<cffunction name="helperIf" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="params">
+		<cfreturn convertToBoolean(params[1]) ? template : "">
+	</cffunction>
+
+	<cffunction name="helperUnless" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="params">
+		<cfreturn convertToBoolean(params[1]) ? "" : template>
+	</cffunction>
+
+	<cffunction name="helperRepeat" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="params">
+
+		<cfif not isNumeric(params[1])>
+            <cfreturn "">
+		</cfif>
+
+		<cfset var sb = createObject("java", "java.lang.StringBuilder").init()>
+
+		<cfloop from="1" to="#params[1]#" index="i">
+            <cfset sb.append(template)>
+		</cfloop>
+
+		<cfreturn sb.toString()>
+	</cffunction>
+
+	<cffunction name="helperWithRemainder" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="args">
+		<cfreturn (args[2] mod args[1]) ? template : "">
+	</cffunction>
+
+	<cffunction name="helperNoRemainder" access="private" output="false">
+        <cfargument name="template">
+		<cfargument name="args">
+		<cfreturn (args[2] mod args[1]) ? "" : template>
 	</cffunction>
 
 </cfcomponent>

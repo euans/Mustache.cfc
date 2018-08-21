@@ -1,8 +1,16 @@
 <cfcomponent extends="mxunit.framework.TestCase">
 
+	<cffunction name="_customHelper" access="private">
+		<cfargument name="template">
+		<cfargument name="args">
+
+		<cfreturn template & " " & args[1] & " " & args[2]>
+	</cffunction>
+
 	<cffunction name="setup">
 		<cfset partials = {} />
 		<cfset stache = createObject("component", "mustache.Mustache").init() />
+		<cfset stache.registerHelper("customHelper", _customHelper)>
 	</cffunction>
 
 	<cffunction name="tearDown">
@@ -177,6 +185,45 @@
     <cfset expected = "(1.10)(2.20)(3.30)(4.40)(5.50)" />
   </cffunction>
 
+  <cffunction name="arrayIndexSimple">
+    <cfset context = {
+      fruitsAndNumbers = ["apple","banana","orange",1234,1337.575]
+    } />
+    <cfset template = "{{##fruitsAndNumbers}}({{@index}}:{{.}}){{/fruitsAndNumbers}}">
+    <cfset expected = "(1:apple)(2:banana)(3:orange)(4:1234)(5:1337.575)" />
+  </cffunction>
+
+  <cffunction name="arrayIndexNested">
+    <cfset context = {
+      movies = [
+	  	{name="From Dusk Till Dawn", actors=["Clooney", "Keitel", "Tarantino"]},
+	  	{name="Pulp Fiction", actors=["Travolta", "Jackson", "Thurman", "Willis"]},
+	  	{name="Django Unchained", actors=["Foxx", "Waltz"]}
+      ]
+    } />
+    <cfset template = "{{##movies}}(Movie {{@index}}:{{##actors}} {{@index}}. {{.}}{{/actors}}){{/movies}}">
+    <cfset expected = "(Movie 1: 1. Clooney 2. Keitel 3. Tarantino)(Movie 2: 1. Travolta 2. Jackson 3. Thurman 4. Willis)(Movie 3: 1. Foxx 2. Waltz)" />
+  </cffunction>
+
+  <cffunction name="indexShouldBeEmptyIfNotInsideLoop">
+    <cfset context = {
+      foobar = ["a","b"]
+    } />
+    <cfset template = "{{@index}}{{##foobar}}.{{/foobar}}{{@index}}">
+    <cfset expected = ".." />
+  </cffunction>
+
+  <cffunction name="queryIndex">
+    <cfset contacts = queryNew("name")/>
+    <cfset queryAddRow(contacts)>
+    <cfset querySetCell(contacts, "name", "Peter") />
+    <cfset queryAddRow(contacts)>
+    <cfset querySetCell(contacts, "name", "Laura") />
+    <cfset context = {contacts = contacts} />
+    <cfset template = "{{##contacts}}({{@index}}. {{name}}){{/contacts}}">
+    <cfset expected = "(1. Peter)(2. Laura)" />
+  </cffunction>
+
   <cffunction name="queryAsSection">
     <cfset contacts = queryNew("name,phone")/>
     <cfset queryAddRow(contacts)>
@@ -267,6 +314,82 @@
 		<cfset context = {fullname=lambdaTest} />
     <cfset template = "Mustache was created by {{fullname}}." />
     <cfset expected = "Mustache was created by Chris Wanstrath." />
+  </cffunction>
+  
+  <cffunction name="ifHelper">
+    <cfset q1 = queryNew("name")/>
+    <cfset queryAddRow(q1)>
+    <cfset querySetCell(q1, "name", "Jenny") />
+    <cfset q2 = queryNew("name")/>
+    <cfset context = {
+    	true1=true,
+    	true2=1,
+    	true3=55.34,
+    	true4="Test",
+    	true5={"foobar"=1},
+    	true6=["a"],
+    	true7=q1,
+    	false1=false,
+    	false2=0,
+    	false3=0.0,
+    	false4="",
+    	false5={},
+    	false6=[],
+    	false7=q2
+    	}/>
+    <cfset template = "{{##if true1}}(t1){{/if}}{{##if true2}}(t2){{/if}}{{##if true3}}(t3){{/if}}{{##if true4}}(t4){{/if}}{{##if true5}}(t5){{/if}}{{##if true6}}(t6){{/if}}{{##if true7}}(t7){{/if}}" />
+    <cfset template &= "{{##if false1}}(f1){{/if}}{{##if false2}}(f2){{/if}}{{##if false3}}(f3){{/if}}{{##if false4}}(f4){{/if}}{{##if false5}}(f5){{/if}}{{##if false6}}(f6){{/if}}{{##if false7}}(f7){{/if}}" />
+    <cfset expected = "(t1)(t2)(t3)(t4)(t5)(t6)(t7)" />
+  </cffunction>
+
+  <cffunction name="unlessHelper">
+    <cfset q1 = queryNew("name")/>
+    <cfset queryAddRow(q1)>
+    <cfset querySetCell(q1, "name", "Jenny") />
+    <cfset q2 = queryNew("name")/>
+    <cfset context = {
+    	true1=true,
+    	true2=1,
+    	true3=55.34,
+    	true4="Test",
+    	true5={"foobar"=1},
+    	true6=["a"],
+    	true7=q1,
+    	false1=false,
+    	false2=0,
+    	false3=0.0,
+    	false4="",
+    	false5={},
+    	false6=[],
+    	false7=q2
+    	}/>
+    <cfset template = "{{##unless true1}}(t1){{/unless}}{{##unless true2}}(t2){{/unless}}{{##unless true3}}(t3){{/unless}}{{##unless true4}}(t4){{/unless}}{{##unless true5}}(t5){{/unless}}{{##unless true6}}(t6){{/unless}}{{##unless true7}}(t7){{/unless}}" />
+    <cfset template &= "{{##unless false1}}(f1){{/unless}}{{##unless false2}}(f2){{/unless}}{{##unless false3}}(f3){{/unless}}{{##unless false4}}(f4){{/unless}}{{##unless false5}}(f5){{/unless}}{{##unless false6}}(f6){{/unless}}{{##unless false7}}(f7){{/unless}}" />
+    <cfset expected = "(f1)(f2)(f3)(f4)(f5)(f6)(f7)" />
+  </cffunction>
+
+  <cffunction name="repeatHelper">
+    <cfset context = {nTimes=3}/>
+    <cfset template = "{{##repeat nTimes}}A{{/repeat}}{{##repeat ""5""}}B{{/repeat}}" />
+    <cfset expected = "AAABBBBB" />
+  </cffunction>
+
+  <cffunction name="withRemainderHelper">
+    <cfset context = {names=["Peter","Hans","Fritz","Susanne","Maria"]}/>
+    <cfset template = '{{##names}}({{.}}){{##withRemainder "2" @index}}<br>{{/withRemainder}}{{/names}}' />
+    <cfset expected = "(Peter)<br>(Hans)(Fritz)<br>(Susanne)(Maria)<br>" />
+  </cffunction>
+
+  <cffunction name="noRemainderHelper">
+    <cfset context = {names=["Peter","Hans","Fritz","Susanne","Maria"]}/>
+    <cfset template = '{{##names}}({{.}}){{##noRemainder "2" @index}}<br>{{/noRemainder}}{{/names}}' />
+    <cfset expected = "(Peter)(Hans)<br>(Fritz)(Susanne)<br>(Maria)" />
+  </cffunction>
+
+  <cffunction name="customHelper">
+    <cfset context = {firstName="Foo"}/>
+    <cfset template = '{{##customHelper firstName "Bar"}}My name is{{/customHelper}}' />
+    <cfset expected = "My name is Foo Bar" />
   </cffunction>
 
   <cffunction name="filter">
