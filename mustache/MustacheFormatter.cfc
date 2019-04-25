@@ -82,7 +82,8 @@
 		<cfset local.i = 0 />
 		<cfset local.nextMatch = "" />
 		<cfloop condition="#local.matcher.find()#">
-			<cfset local.nextMatch = local.matcher.group(0) />
+				<!---// NOTE: For CF2018, we need to cast to integer to be safe //--->
+			<cfset local.nextMatch = local.matcher.group(javaCast("int", 0)) />
 			<cfif isDefined('local.nextMatch')>
 				<cfset arrayAppend(local.results, local.nextMatch) />
 			<cfelse>

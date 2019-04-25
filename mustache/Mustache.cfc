@@ -399,7 +399,8 @@
 		<cfset local.nextMatch = ""/>
 		<cfif local.matcher.Find()>
 			<cfloop index="local.i" from="0" to="#local.matcher.groupCount()#">
-				<cfset local.nextMatch = local.matcher.group(local.i)/>
+				<!---// NOTE: For CF2018, we need to cast the counter to an int, otherwise it's passed in as a string //--->
+				<cfset local.nextMatch = local.matcher.group(javaCast("int", local.i)) />
 				<cfif isDefined('local.nextMatch')>
 					<cfset arrayAppend(local.results, local.nextMatch)/>
 				<cfelse>
