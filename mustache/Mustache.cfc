@@ -21,23 +21,30 @@
 
 	<!--- namespace for Mustache private variables (to avoid name collisions when extending Mustache.cfc) --->
 	<cfset variables.Mustache = structNew() />
+	<cfset variables.Mustache.Pattern = createObject("java","java.util.regex.Pattern") />
 
 	<!--- captures the ".*" match for looking for formatters (see #2) and also allows nested structure references (see #3), removes looking for comments --->
-	<cfset variables.Mustache.TagRegEx = createObject("java","java.util.regex.Pattern").compile("\{\{(\{|&|\>)?\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
+	<cfset variables.Mustache.TagRegEx = variables.Mustache.Pattern.compile("\{\{(\{|&|\>)?\s*((?:\w+(?:(?:\.\w+){1,})?)|\.+)(.*?)\}?\}\}", 32)/>
+	<!--- Partial regex --->
+	<cfset variables.Mustache.PartialRegEx = variables.Mustache.Pattern.compile("\{\{\>\s*((?:\w+(?:(?:\.\w+){1,})?)|\.)(.*?)\}?\}\}", 32)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.SectionRegEx = createObject("java","java.util.regex.Pattern").compile("\{\{(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*}}(.*?)\{\{/\s*\2\s*\}\}", 32)/>
+	<cfset variables.Mustache.SectionRegEx = variables.Mustache.Pattern.compile("\{\{\s*(##|\^)\s*(\w+(?:(?:\.\w+){1,})?)\s*}}(.*?)\{\{\s*/\s*\2\s*\}\}", 32)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.CommentRegEx = createObject("java","java.util.regex.Pattern").compile("((^\r?\n?)|\s+)?\{\{!.*?\}\}(\r?\n?(\r?\n?)?)?", 40)/>
+	<cfset variables.Mustache.CommentRegEx = variables.Mustache.Pattern.compile("((^\r?\n?)|\s+)?\{\{!.*?\}\}(\r?\n?(\r?\n?)?)?", 40)/>
 	<!--- captures nested structure references --->
-	<cfset variables.Mustache.HeadTailBlankLinesRegEx = createObject("java","java.util.regex.Pattern").compile(javaCast("string", "(^(\r?\n))|((?<!(\r?\n))(\r?\n)$)"), 32)/>
+	<cfset variables.Mustache.HeadTailBlankLinesRegEx = variables.Mustache.Pattern.compile(javaCast("string", "(^(\r?\n))|((?<!(\r?\n))(\r?\n)$)"), 32)/>
 	<!--- for tracking partials --->
 	<cfset variables.Mustache.partials = {}/>
+	<!--- Raising Errors --->
+	<cfset variables.Mustache.RaiseErrors = "true">
 
 	<cffunction name="init" access="public" output="false"
 		hint="initalizes and returns the object">
 		<cfargument name="partials" hint="the partial objects" default="#StructNew()#">
+		<cfargument name="raiseErrors" hint="raise errors if template is not found" default="true">
 
 		<cfset setPartials(arguments.partials)/>
+		<cfset setRaiseErrors(arguments.RaiseErrors)>
 
 		<cfreturn this/>
 	</cffunction>
@@ -49,12 +56,32 @@
 		<cfargument name="partials" hint="the partial objects" required="true" default="#structNew()#"/>
 		<cfargument name="options" hint="options object (can be used in overridden functions to pass additional instructions)" required="false" default="#structNew()#"/>
 
+		<!--- Replace partials in template --->
+		<cfset arguments.template=replacePartialsInTemplate(arguments.template,arguments.partials) />
+
 		<cfset var results = renderFragment(argumentCollection=arguments)/>
 
 		<!--- remove single blank lines at the head/tail of the stream --->
 		<cfset results = variables.Mustache.HeadTailBlankLinesRegEx.matcher(javaCast("string", results)).replaceAll("")/>
 
 		<cfreturn results/>
+	</cffunction>
+
+	<cffunction name="replacePartialsInTemplate" access="private" output="false">
+		<cfargument name="template" />
+		<cfargument name="partials"/>
+
+		<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.PartialRegEx)/>
+
+		<cfif arrayLen(local.matches)>
+			<cfset local.partial = getPartial(trim(local.matches[2]),arguments.partials) />
+			<cfset local.result= ReplaceNoCase(arguments.template,local.matches[1],local.partial) />
+		<cfelse>
+			<cfset local.result=arguments.template />
+		</cfif>
+
+		<cfreturn local.result />
+
 	</cffunction>
 
 	<cffunction name="renderFragment" access="private" output="false"
@@ -119,7 +146,7 @@
 				<cfset local.whiteSpaceRegex = "(^\r?\n?)?(\r?\n?)?"/>
 			</cfif>
 			<!--- we use a regex to remove unwanted whitespacing from appearing --->
-			<cfset arguments.template = createObject("java","java.util.regex.Pattern").compile(javaCast("string", local.whiteSpaceRegex & "\Q" & local.tag & "\E(\r?\n?)?"), 40).matcher(javaCast("string", arguments.template)).replaceAll(local.rendered)/>
+			<cfset arguments.template = variables.Mustache.Pattern.compile(javaCast("string", local.whiteSpaceRegex & "\Q" & local.tag & "\E(\r?\n?)?"), 40).matcher(javaCast("string", arguments.template)).replaceAll(local.rendered)/>
 
 			<!--- track the position of the last section ---->
 			<cfset lastSectionPosition = local.sectionPosition />
@@ -314,7 +341,7 @@
 		<cfargument name="options"/>
 		<cfargument name="callerArgs" hint="Arguments supplied to the renderTag() function"/>
 
-		<cfreturn htmlEditFormat(arguments.input)/>
+		<cfreturn encodeForHtml(arguments.input)/>
 	</cffunction>
 
 	<cffunction name="onRenderTag" access="private" output="false"
@@ -334,9 +361,9 @@
 		<cfargument name="options"/>
 
 		<cfif structKeyExists(arguments.partials, arguments.name)>
-			<cfreturn render(arguments.partials[arguments.name], arguments.context, arguments.partials, arguments.options)/>
+			<cfreturn this.render(arguments.partials[arguments.name], arguments.context, arguments.partials, arguments.options)/>
 		<cfelse>
-			<cfreturn render(readMustacheFile(arguments.name), arguments.context, arguments.partials, arguments.options)/>
+			<cfreturn this.render(readMustacheFile(arguments.name), arguments.context, arguments.partials, arguments.options)/>
 		</cfif>
 
 	</cffunction>
@@ -345,8 +372,16 @@
 		<cfargument name="filename"/>
 
 		<cfset var template= ""/>
-
-		<cffile action="read" file="#getDirectoryFromPath(getMetaData(this).path)##arguments.filename#.mustache" variable="template"/>
+		<cftry>
+			<cffile action="read" file="#getDirectoryFromPath(getMetaData(this).path)##arguments.filename#.mustache" variable="template"/>
+			<cfcatch type="any">
+				<cfif getRaiseErrors()>
+					<cfthrow type="Mustache.TemplateMissing" message="Cannot not find `#arguments.filename#` template"/>
+				<cfelse>
+					<cfreturn ""/>
+				</cfif>
+			</cfcatch>
+		</cftry>
 		<cfreturn trim(template)/>
 	</cffunction>
 
@@ -355,12 +390,20 @@
 		<cfargument name="context"/>
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
+		<cfargument name="mode" default="" />
 
 		<cfset var local = {}/>
 
 		<!--- if we are the implicit iterator --->
 		<cfif arguments.key eq ".">
-			<cfreturn toString(context) />
+			<cfif isSimpleValue(context)>
+				<cfreturn toString(context) />
+			<cfelse>
+				<cfreturn serializeJSON(context) />
+			</cfif>
+		<!--- if we're only 2 or more periods, we should ignore the request --->
+		<cfelseif reFind("^\.+$", arguments.key)>
+			<cfreturn "" />
 		<!--- if we're a nested key, do a nested lookup --->
 		<cfelseif find(".", arguments.key)>
 			<cfset local.key = listRest(arguments.key, ".")/>
@@ -412,6 +455,20 @@
 		<cfreturn local.results/>
 	</cffunction>
 
+	<cffunction name="getPartial" access="private" output="false">
+		<cfargument name="name" hint="the name of the partial" required="true">
+		<cfargument name="partials" hint="the partials object" required="false">
+
+		<cfif structKeyExists(variables.Mustache.partials,arguments.name)>
+			<cfreturn variables.Mustache.partials[arguments.name] />
+		<cfelseif structKeyExists(arguments,"partials") and structKeyExists(arguments.partials, arguments.name)>
+			<cfreturn arguments.partials[arguments.name] />
+		<cfelse>
+			<!--- Fetch from file as last resort --->
+			<cfreturn readMustacheFile(arguments.name) />
+		</cfif>
+	</cffunction>
+
 	<cffunction name="getPartials" access="public" output="false">
 		<cfreturn variables.Mustache.partials/>
 	</cffunction>
@@ -421,6 +478,14 @@
 		<cfargument name="options"/>
 
 		<cfset variables.Mustache.partials = arguments.partials/>
+	</cffunction>
+	
+	<cffunction name="getRaiseErrors" access="public" output="false">
+		<cfreturn variables.Mustache.RaiseErrors>
+	</cffunction>
+	<cffunction name="setRaiseErrors" access="public" output="false">
+		<cfargument name="value" type="boolean" required="true">
+		<cfset variables.Mustache.RaiseErrors = arguments.value>
 	</cffunction>
 
 </cfcomponent>

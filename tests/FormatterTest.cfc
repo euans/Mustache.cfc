@@ -79,11 +79,7 @@ A new ticket has been entered and assigned to Tommy.
 | Subject: E-mail not working                                                |
 +----------------------------------------------------------------------------+
 Description:
-Here''s a description
-
-with some
-
-new lines
+Here&##x27;s a description&##xd;&##xa;&##xd;&##xa;with some&##xd;&##xa;&##xd;&##xa;new lines
 		') />
 	</cffunction>
 
