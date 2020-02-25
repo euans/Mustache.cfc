@@ -165,22 +165,34 @@
     <cfset expected = "shouldignore" />
   </cffunction>
 
+  <cffunction name="iteratorShouldNotProcessTagsAlreadyReplaced">
+    <!---// we set the context to the plain text encoder //--->
+    <cfset context = "{{{.}}}" />
+    <!---// with the context equal to the iterator, we can test for recursion issues //--->
+    <cfset template = "hello{{{.}}}world{{{.}}}!">
+    <!---// when parsing the content, once we parse the string we should not parse it again //--->
+    <cfset expected = "hello{{{.}}}world{{{.}}}!" />
+  </cffunction>
+
   <cffunction name="iteratorShouldConvertStructContextToString">
     <cfset context = {input="hello world!"} />
+    <cfset encodedContext = encodeForHtml(serializeJSON(context)) />
     <cfset template = "between{{.}}here">
-    <cfset expected = "between" & encodeForHtml(serializeJSON(context)) & "here" />
+    <cfset expected = "between" & encodedContext & "here" />
   </cffunction>
 
   <cffunction name="iteratorShouldConvertArrayContextToString">
     <cfset context = [0, 1, 2] />
+    <cfset encodedContext = encodeForHtml(serializeJSON(context)) />
     <cfset template = "between{{.}}here">
-    <cfset expected = "between" & encodeForHtml(serializeJSON(context)) & "here" />
+    <cfset expected = "between" & encodedContext & "here" />
   </cffunction>
 
   <cffunction name="iteratorShouldConvertQueryContextToString">
     <cfset context = queryNew('firstname,lastname', 'varchar, varchar', [["unit", "test"]]) />
+    <cfset encodedContext = encodeForHtml(serializeJSON(context)) />
     <cfset template = "between{{.}}here">
-    <cfset expected = "between" & encodeForHtml(serializeJSON(context)) & "here" />
+    <cfset expected = "between" & encodedContext & "here" />
   </cffunction>
 
   <cffunction name="queryAsSection">

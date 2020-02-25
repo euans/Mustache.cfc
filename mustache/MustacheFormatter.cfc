@@ -16,12 +16,6 @@
 	   in the default Mustache syntax.
 --->
 <cfcomponent extends="Mustache" output="false">
-
-<!---
-	<!---// the only difference to the original RegEx is I capture the ".*" match //--->
-	<cfset variables.TagRegEx = CreateObject("java","java.util.regex.Pattern").compile("\{\{(!|\{|&|\>)?\s*(\w+)(.*?)\}?\}\}", 32) />
---->
-
 	<!---// captures arguments to be passed to formatter functions //--->
 	<cfset variables.Mustache.ArgumentsRegEx = createObject("java","java.util.regex.Pattern").compile("[^\s,]*(?<!\\)\(.*?(?<!\\)\)|(?<!\\)\[.*?(?<!\\)\]|(?<!\\)\{.*?(?<!\\)\}|(?<!\\)('|"").*?(?<!\\)\1|(?:(?!,)\S)+", 40) />
 

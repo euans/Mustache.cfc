@@ -71,11 +71,11 @@
 		<cfargument name="template" />
 		<cfargument name="partials"/>
 
-		<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.PartialRegEx)/>
+		<cfset local.matches = reFindNoCaseValues(arguments.template, variables.Mustache.PartialRegEx).matches/>
 
 		<cfif arrayLen(local.matches)>
 			<cfset local.partial = getPartial(trim(local.matches[2]),arguments.partials) />
-			<cfset local.result= ReplaceNoCase(arguments.template,local.matches[1],local.partial) />
+			<cfset local.result= replaceNoCase(arguments.template,local.matches[1],local.partial) />
 		<cfelse>
 			<cfset local.result=arguments.template />
 		</cfif>
@@ -109,7 +109,7 @@
 		<cfset var lastSectionPosition = -1/>
 
 		<cfloop condition = "true">
-			<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.SectionRegEx)/>
+			<cfset local.matches = reFindNoCaseValues(arguments.template, variables.Mustache.SectionRegEx).matches/>
 
 			<cfif arrayLen(local.matches) eq 0>
 				<cfbreak/>
@@ -272,11 +272,13 @@
 		<cfargument name="partials"/>
 		<cfargument name="options"/>
 
-		<cfset var local = {}/>
+		<cfset var local = {} />
+		<cfset var lastTagPosition = 0 />
 
 		<cfloop condition = "true" >
-
-			<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.TagRegEx)/>
+			<!---// find the next match of the content, but look after the last location //--->
+			<cfset local.matchResults = reFindNoCaseValues(arguments.template, variables.Mustache.TagRegEx, lastTagPosition) />
+			<cfset local.matches = local.matchResults.matches />
 
 			<cfif arrayLen(local.matches) eq 0>
 				<cfbreak/>
@@ -287,8 +289,10 @@
 			<cfset local.tagName = local.matches[3]/>
 			<!--- gets the ".*" capture --->
 			<cfset local.extra = local.matches[4]/>
-			<cfset arguments.template = replace(arguments.template, local.tag, renderTag(local.type, local.tagName, arguments.context, arguments.partials, arguments.options, local.extra))/>
-
+			<cfset local.replacementText = renderTag(local.type, local.tagName, arguments.context, arguments.partials, arguments.options, local.extra) />
+			<cfset arguments.template = replace(arguments.template, local.tag, local.replacementText)/>
+			<!---// track the next position to start parsing //--->
+			<cfset lastTagPosition = local.matchResults.position.start + len(local.replacementText) />
 		</cfloop>
 
 		<cfreturn arguments.template/>
@@ -430,24 +434,28 @@
 		</cfif>
 	</cffunction>
 
-	<cffunction name="ReFindNoCaseValues" access="private" output="false">
+	<cffunction name="reFindNoCaseValues" access="private" output="false">
 		<cfargument name="text"/>
 		<cfargument name="re"/>
+		<cfargument name="position" type="numeric" default="0" />
 
 		<cfset var local = {}>
 
-		<cfset local.results = []/>
+		<cfset local.results = {"position"={"start"=0, "end"=0}, "matches"=[]} />
 		<cfset local.matcher = arguments.re.matcher(arguments.text)/>
 		<cfset local.i = 0/>
 		<cfset local.nextMatch = ""/>
-		<cfif local.matcher.Find()>
+
+		<cfif local.matcher.Find(javaCast("int", arguments.position))>
+			<cfset local.results.position.start = local.matcher.start() />
+			<cfset local.results.position.end = local.matcher.end() />
 			<cfloop index="local.i" from="0" to="#local.matcher.groupCount()#">
 				<!---// NOTE: For CF2018, we need to cast the counter to an int, otherwise it's passed in as a string //--->
 				<cfset local.nextMatch = local.matcher.group(javaCast("int", local.i)) />
 				<cfif isDefined('local.nextMatch')>
-					<cfset arrayAppend(local.results, local.nextMatch)/>
+					<cfset arrayAppend(local.results.matches, local.nextMatch)/>
 				<cfelse>
-					<cfset arrayAppend(local.results, "")/>
+					<cfset arrayAppend(local.results.matches, "")/>
 				</cfif>
 			</cfloop>
 		</cfif>
