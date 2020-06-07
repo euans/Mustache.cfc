@@ -120,7 +120,7 @@
 		<cfset var lastSectionPosition = -1/>
 
 		<cfloop condition = "true">
-			<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.SectionRegEx)/>
+			<cfset local.matches = reFindNoCaseValues(arguments.template, variables.Mustache.SectionRegEx).matches/>
 
 			<cfif arrayLen(local.matches) eq 0>
 				<cfbreak/>
@@ -320,11 +320,13 @@
 		<cfargument name="options"/>
 		<cfargument name="index"/>
 
-		<cfset var local = {}/>
+		<cfset var local = {} />
+		<cfset var lastTagPosition = 0 />
 
 		<cfloop condition = "true" >
-
-			<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.TagRegEx)/>
+			<!---// find the next match of the content, but look after the last location //--->
+			<cfset local.matchResults = reFindNoCaseValues(arguments.template, variables.Mustache.TagRegEx, lastTagPosition) />
+			<cfset local.matches = local.matchResults.matches />
 
 			<cfif arrayLen(local.matches) eq 0>
 				<cfbreak/>
@@ -390,7 +392,7 @@
 		<cfargument name="options"/>
 		<cfargument name="callerArgs" hint="Arguments supplied to the renderTag() function"/>
 
-		<cfreturn htmlEditFormat(arguments.input)/>
+		<cfreturn encodeForHtml(arguments.input)/>
 	</cffunction>
 
 	<cffunction name="onRenderTag" access="private" output="false"
@@ -474,23 +476,28 @@
 		</cfif>
 	</cffunction>
 
-	<cffunction name="ReFindNoCaseValues" access="private" output="false">
+	<cffunction name="reFindNoCaseValues" access="private" output="false">
 		<cfargument name="text"/>
 		<cfargument name="re"/>
+		<cfargument name="position" type="numeric" default="0" />
 
 		<cfset var local = {}>
 
-		<cfset local.results = []/>
+		<cfset local.results = {"position"={"start"=0, "end"=0}, "matches"=[]} />
 		<cfset local.matcher = arguments.re.matcher(arguments.text)/>
 		<cfset local.i = 0/>
 		<cfset local.nextMatch = ""/>
-		<cfif local.matcher.Find()>
+
+		<cfif local.matcher.Find(javaCast("int", arguments.position))>
+			<cfset local.results.position.start = local.matcher.start() />
+			<cfset local.results.position.end = local.matcher.end() />
 			<cfloop index="local.i" from="0" to="#local.matcher.groupCount()#">
-				<cfset local.nextMatch = local.matcher.group(JavaCast("int",local.i))/>
+				<!---// NOTE: For CF2018, we need to cast the counter to an int, otherwise it's passed in as a string //--->
+				<cfset local.nextMatch = local.matcher.group(javaCast("int", local.i)) />
 				<cfif isDefined('local.nextMatch')>
-					<cfset arrayAppend(local.results, local.nextMatch)/>
+					<cfset arrayAppend(local.results.matches, local.nextMatch)/>
 				<cfelse>
-					<cfset arrayAppend(local.results, "")/>
+					<cfset arrayAppend(local.results.matches, "")/>
 				</cfif>
 			</cfloop>
 		</cfif>

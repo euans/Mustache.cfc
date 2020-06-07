@@ -15,11 +15,11 @@
 
 	<cffunction name="tearDown">
 <!---
-		<cfoutput>#htmlCodeFormat(expected)#</cfoutput>
-		<hr />
-		<cfoutput>#htmlCodeFormat(stache.render(template, context, partials))#</cfoutput>
-		<cfabort />
+    <cfset writeOutput("<pre>" & encodeForHtml(expected) & "</pre>") />
+    <cfset writeOutput("<pre>" & encodeForHtml(stache.render(template, context, partials)) & "</pre>") />
+    <cfabort />
 --->
+
 		<cfset assertEquals(expected, stache.render(template, context, partials))/>
 	</cffunction>
 
@@ -271,7 +271,7 @@
   <cffunction name="escape">
     <cfset context = { thing = '<b>world</b>'} />
     <cfset template = "Hello, {{thing}}!" />
-    <cfset expected = "Hello, &lt;b&gt;world&lt;/b&gt;!" />
+    <cfset expected = "Hello, &lt;b&gt;world&lt;&##x2f;b&gt;!" />
   </cffunction>
 
   <cffunction name="dontEscape">
@@ -535,7 +535,7 @@ Well, $600, after taxes.
 
 I did calculate taxes.
 
-Here is some HTML: &lt;b&gt;some html&lt;/b&gt;
+Here is some HTML: &lt;b&gt;some html&lt;&##x2f;b&gt;
 Here is some unescaped HTML: <b>some html</b>
 
 Here are the history notes:
@@ -590,7 +590,7 @@ You have just won $1000!
 
 I did <strong><em>not</em></strong> calculate taxes.
 
-Here is some HTML: &lt;b&gt;some html&lt;/b&gt;
+Here is some HTML: &lt;b&gt;some html&lt;&##x2f;b&gt;
 Here is some unescaped HTML: <b>some html</b>
 
 Here are the history notes:
@@ -697,7 +697,7 @@ Last line!
 	<cffunction name="whiteSpaceManagementWithNonEmptyValue">
 		<cfscript>
 			context = {
-				  not_empty_value="here!"
+				  not_empty_value="here"
 			};
 
 			template = trim('
@@ -711,7 +711,7 @@ Last line!
 			expected = trim('
 First line!
 
-here!
+here
 
 Last line!
 			');
@@ -758,11 +758,7 @@ Subject: E-mail not working
 Phone Number: 867-5309
 
 Description:
-Here''s a description
-
-with some
-
-new lines
+Here&##x27;s a description&##xd;&##xa;&##xd;&##xa;with some&##xd;&##xa;&##xd;&##xa;new lines
 
 Public Note:
 User needs to update their software to the latest version.
@@ -803,7 +799,7 @@ Description:
 
 
 Private Note:
-Client doesn''t want to listen to instructions
+Client doesn&##x27;t want to listen to instructions
 
 Thank you,
 Support Team

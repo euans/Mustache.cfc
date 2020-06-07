@@ -16,12 +16,6 @@
 	   in the default Mustache syntax.
 --->
 <cfcomponent extends="Mustache" output="false">
-
-<!---
-	<!---// the only difference to the original RegEx is I capture the ".*" match //--->
-	<cfset variables.TagRegEx = CreateObject("java","java.util.regex.Pattern").compile("\{\{(!|\{|&|\>)?\s*(\w+)(.*?)\}?\}\}", 32) />
---->
-
 	<!---// captures arguments to be passed to formatter functions //--->
 	<cfset variables.Mustache.ArgumentsRegEx = createObject("java","java.util.regex.Pattern").compile("[^\s,]*(?<!\\)\(.*?(?<!\\)\)|(?<!\\)\[.*?(?<!\\)\]|(?<!\\)\{.*?(?<!\\)\}|(?<!\\)('|"").*?(?<!\\)\1|(?:(?!,)\S)+", 40) />
 
@@ -82,7 +76,8 @@
 		<cfset local.i = 0 />
 		<cfset local.nextMatch = "" />
 		<cfloop condition="#local.matcher.find()#">
-			<cfset local.nextMatch = local.matcher.group() />
+				<!---// NOTE: For CF2018, we need to cast to integer to be safe //--->
+			<cfset local.nextMatch = local.matcher.group(javaCast("int", 0)) />
 			<cfif isDefined('local.nextMatch')>
 				<cfset arrayAppend(local.results, local.nextMatch) />
 			<cfelse>

@@ -37,7 +37,7 @@
 		<cfset options = {useDefault=true} />
     <cfset context = { thing = '<b>World</b>'} />
     <cfset template = "Hello, {{thing}}!" />
-    <cfset expected = "Hello, #htmlEditFormat(context.thing)#!" />
+    <cfset expected = "Hello, #encodeForHtml(context.thing)#!" />
   </cffunction>
 
 </cfcomponent>
