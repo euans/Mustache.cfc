@@ -1,16 +1,13 @@
-<!---//
-	This is a version of the Mustache templating engine inherits the formatting
-	options and always encodes all mustache tags into plain text.
-//--->
-<cfcomponent extends="MustacheFormatter" output="false">
+/**
+ *	This is a version of the Mustache templating engine inherits the formatting
+ *	options and always encodes all mustache tags into plain text.
+ */
 
-	<!---// force all encoding to text encoder //--->
-	<cffunction name="htmlEncode" access="private" output="false">
-		<cfargument name="input"/>
-		<cfargument name="options"/>
-		<cfargument name="callerArgs" hint="Arguments supplied to the renderTag() function"/>
+component extends="MustacheFormatter" {
 
-		<cfreturn textEncode(argumentCollection=arguments)/>
-	</cffunction>
+	// force all encoding to text encoder
+	private function htmlEncode ( input, options, callerArgs ) output=false {
+		return textEncode( argumentCollection = arguments );
+	}
 
-</cfcomponent>
+}

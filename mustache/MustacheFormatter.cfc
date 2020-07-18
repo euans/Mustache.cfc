@@ -1,127 +1,109 @@
-<!---
-	This extention to Mustache provides the following functionality:
+/**
+ *	This extention to Mustache provides the following functionality:
+ *
+ *	1) It adds Ctemplate-style "modifiers" (or formatters). You can now use the following
+ *	   syntax with your variables:
+ *
+ *	   Hello "{{NAME:leftPad(20):upperCase}}"
+ *
+ *	   This would output the "NAME" variable, left justify it's output to 20 characters and
+ *	   make the string upper case.
+ *
+ *	   The idea is to provide a collection of common formatter functions, but a user could
+ *	   extend this compontent to add in their own user formatters.
+ *
+ *	   This method provides is more readable and easy to implement over the lambda functionality
+ *	   in the default Mustache syntax.
+ */
 
-	1) It adds Ctemplate-style "modifiers" (or formatters). You can now use the following
-	   syntax with your variables:
+component extends="Mustache" {
 
-	   Hello "{{NAME:leftPad(20):upperCase}}"
+	// captures arguments to be passed to formatter functions
+	variables.Mustache.ArgumentsRegEx = createObject( 'java', 'java.util.regex.Pattern' ).compile(
+		"[^\s,]*(?<!\\)\(.*?(?<!\\)\)|(?<!\\)\[.*?(?<!\\)\]|(?<!\\)\{.*?(?<!\\)\}|(?<!\\)('|"").*?(?<!\\)\1|(?:(?!,)\S)+",
+		40
+	);
+	// overwrite the default methods
+	private function onRenderTag ( rendered, options ) {
+		var local   = {};
+		var results = arguments.rendered;
+		if ( !structKeyExists( arguments.options, 'extra' ) || !len( arguments.options.extra ) ) {
+			return results;
+		}
+		local.extras = listToArray( arguments.options.extra, ':' );
+		// look for functional calls (see #2)
+		for ( local.fn in local.extras ) {
+			// all formatting functions start with two underscores
+			local.fn     = trim( '__' & local.fn );
+			local.fnName = listFirst( local.fn, '(' );
+			// check to see if we have a function matching this fn name
+			if ( structKeyExists( variables, local.fnName ) && isCustomFunction( variables[local.fnName] ) ) {
+				// get the arguments (but ignore empty arguments)
+				if ( reFind( '\([^\)]+\)', local.fn ) ) {
+					// get the arguments from the function name
+					local.args = replace( local.fn, local.fnName & '(', '' );
+					// gets the arguments from the string
+					local.args = regexMatch(
+						left( local.args, len( local.args ) - 1 ),
+						variables.Mustache.ArgumentsRegEx
+					);
+				} else {
+					local.args = [];
+				}
+				// call the function and pass in the arguments
+				cfinvoke( returnvariable = "results", method = local.fnName ) {
+					// bug in lucee, see: https://luceeserver.atlassian.net/browse/LDEV-1110
+					cfinvokeargument( name = 1, value = results );
+					local.i = 1;
+					for ( local.value in local.args ) {
+						local.i++;
+						cfinvokeargument( name = local.i, value = trim( local.value ) );
+					}
+				}
+			}
+		}
+		return results;
+	}
 
-	   This would output the "NAME" variable, left justify it's output to 20 characters and
-	   make the string upper case.
-
-	   The idea is to provide a collection of common formatter functions, but a user could
-	   extend this compontent to add in their own user formatters.
-
-	   This method provides is more readable and easy to implement over the lambda functionality
-	   in the default Mustache syntax.
---->
-<cfcomponent extends="Mustache" output="false">
-	<!---// captures arguments to be passed to formatter functions //--->
-	<cfset variables.Mustache.ArgumentsRegEx = createObject("java","java.util.regex.Pattern").compile("[^\s,]*(?<!\\)\(.*?(?<!\\)\)|(?<!\\)\[.*?(?<!\\)\]|(?<!\\)\{.*?(?<!\\)\}|(?<!\\)('|"").*?(?<!\\)\1|(?:(?!,)\S)+", 40) />
-
-	<!---// overwrite the default methods //--->
-  <cffunction name="onRenderTag" access="private" output="false">
-    <cfargument name="rendered" />
-    <cfargument name="options" hint="Arguments supplied to the renderTag() function" />
-
-		<cfset var local = {} />
-		<cfset var results = arguments.rendered />
-
-		<cfif not structKeyExists(arguments.options, "extra") or not len(arguments.options.extra)>
-			<cfreturn results />
-		</cfif>
-
-		<cfset local.extras = listToArray(arguments.options.extra, ":") />
-
-		<!---// look for functional calls (see #2) //--->
-		<cfloop index="local.fn" array="#local.extras#">
-			<!---// all formatting functions start with two underscores //--->
-			<cfset local.fn = trim("__" & local.fn) />
-			<cfset local.fnName = listFirst(local.fn, "(") />
-			<!---// check to see if we have a function matching this fn name //--->
-			<cfif structKeyExists(variables, local.fnName) and isCustomFunction(variables[local.fnName])>
-				<!---// get the arguments (but ignore empty arguments) //--->
-				<cfif reFind("\([^\)]+\)", local.fn)>
-					<!---// get the arguments from the function name //--->
-					<cfset local.args = replace(local.fn, local.fnName & "(", "") />
-					<!---// gets the arguments from the string //--->
-					<cfset local.args = regexMatch(left(local.args, len(local.args)-1), variables.Mustache.ArgumentsRegEx) />
-				<cfelse>
-					<cfset local.args = [] />
-				</cfif>
-
-				<!---// call the function and pass in the arguments //--->
-				<cfinvoke method="#local.fnName#" returnvariable="results">
-					<cfinvokeargument name="1" value="#results#">
-					<cfset local.i = 1 />
-					<cfloop index="local.value" array="#local.args#">
-						<cfset local.i++ />
-						<cfinvokeargument name="#local.i#" value="#trim(local.value)#" />
-					</cfloop>
-				</cfinvoke>
-			</cfif>
-		</cfloop>
-
-		<cfreturn results />
-  </cffunction>
-
-	<cffunction name="regexMatch" access="private" output="false">
-		<cfargument name="text"/>
-		<cfargument name="re"/>
-
-		<cfset var local = {}>
-
-		<cfset local.results = []/>
-		<cfset local.matcher = arguments.re.matcher(arguments.text)/>
-		<cfset local.i = 0 />
-		<cfset local.nextMatch = "" />
-		<cfloop condition="#local.matcher.find()#">
-				<!---// NOTE: For CF2018, we need to cast to integer to be safe //--->
-			<cfset local.nextMatch = local.matcher.group(javaCast("int", 0)) />
-			<cfif isDefined('local.nextMatch')>
-				<cfset arrayAppend(local.results, local.nextMatch) />
-			<cfelse>
-				<cfset arrayAppend(local.results, "") />
-			</cfif>
-		</cfloop>
-
-		<cfreturn local.results />
-	</cffunction>
-
-	<!---//
+	private function regexMatch ( text, re ) {
+		var local       = {};
+		local.results   = [];
+		local.matcher   = arguments.re.matcher( arguments.text );
+		local.i         = 0;
+		local.nextMatch = '';
+		while ( condition = '#local.matcher.find()#' ) {
+			// NOTE: For CF2018, we need to cast to integer to be safe
+			local.nextMatch = local.matcher.group( javacast( 'int', 0 ) );
+			if ( isDefined( 'local.nextMatch' ) ) {
+				arrayAppend( local.results, local.nextMatch );
+			} else {
+				arrayAppend( local.results, '' );
+			}
+		}
+		return local.results;
+	}
+	/*
 		MUSTACHE FUNCTIONS
-	 //--->
-	<cffunction name="__leftPad" access="private" output="false">
-		<cfargument name="value" type="string" />
-		<cfargument name="length" type="numeric" />
+	 //*/
 
-		<cfreturn lJustify(arguments.value, arguments.length) />
-	</cffunction>
+	private function __leftPad ( string value, numeric length ) {
+		return lJustify( arguments.value, arguments.length );
+	}
 
-	<cffunction name="__rightPad" access="private" output="false">
-		<cfargument name="value" type="string" />
-		<cfargument name="length" type="numeric" />
+	private function __rightPad ( string value, numeric length ) {
+		return rJustify( arguments.value, arguments.length );
+	}
 
-		<cfreturn rJustify(arguments.value, arguments.length) />
-	</cffunction>
+	private function __upperCase ( string value ) {
+		return uCase( arguments.value );
+	}
 
-	<cffunction name="__upperCase" access="private" output="false">
-		<cfargument name="value" type="string" />
+	private function __lowerCase ( string value ) {
+		return lCase( arguments.value );
+	}
 
-		<cfreturn ucase(arguments.value) />
-	</cffunction>
+	private function __multiply ( numeric num1, numeric num2 ) {
+		return arguments.num1 * arguments.num2;
+	}
 
-	<cffunction name="__lowerCase" access="private" output="false">
-		<cfargument name="value" type="string" />
-
-		<cfreturn lcase(arguments.value) />
-	</cffunction>
-
-	<cffunction name="__multiply" access="private" output="false">
-		<cfargument name="num1" type="numeric" />
-		<cfargument name="num2" type="numeric" />
-
-		<cfreturn arguments.num1 * arguments.num2 />
-	</cffunction>
-
-</cfcomponent>
+}
