@@ -80,7 +80,7 @@
 		<cfargument name="template" />
 		<cfargument name="partials"/>
 
-		<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.PartialRegEx)/>
+		<cfset local.matches = ReFindNoCaseValues(arguments.template, variables.Mustache.PartialRegEx).matches />
 
 		<cfif arrayLen(local.matches)>
 			<cfset local.partial = getPartial(trim(local.matches[2]),arguments.partials) />
